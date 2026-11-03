@@ -8,8 +8,8 @@ workflows:
     environment:
       ios_signing:
         provisioning_profiles:
-          - fft_ios
-          - fft_watch
+          - FFT iOS App Store
+          - FFT Watch App Store
         certificates:
           - berfau_dist
           - berfau_dist1
