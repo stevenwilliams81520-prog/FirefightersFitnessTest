@@ -1,0 +1,41 @@
+workflows:
+  firefighters-fitness-test:
+    name: Firefighters Fitness Test
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: YOUR_APP_STORE_CONNECT_KEY_NAME   # same API key integration you use for your other apps
+    environment:
+      groups:
+        - appstore_credentials        # must contain CERTIFICATE_PRIVATE_KEY
+      vars:
+        IOS_BUNDLE_ID: com.stevenwilliams.firefightersfitnesstest
+        WATCH_BUNDLE_ID: com.stevenwilliams.firefightersfitnesstest.watchkitapp
+      xcode: latest
+    scripts:
+      - name: Generate Xcode project
+        script: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Set up signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$IOS_BUNDLE_ID" --type IOS_APP_STORE --certificate-key=@env:CERTIFICATE_PRIVATE_KEY --create
+          app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" --type IOS_APP_STORE --certificate-key=@env:CERTIFICATE_PRIVATE_KEY --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Set build number
+        script: |
+          agvtool new-version -all $BUILD_NUMBER
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --project "FirefightersFitnessTest.xcodeproj" \
+            --scheme "FirefightersFitnessTest"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

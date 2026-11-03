@@ -47,6 +47,7 @@ struct IdleView: View {
                 }
             }
         }
+        .onAppear { model.refresh() }
     }
 }
 

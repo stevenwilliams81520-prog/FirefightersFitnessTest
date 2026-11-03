@@ -15,6 +15,14 @@ struct RootView: View {
             }
             .navigationTitle("Firefighters Fitness Test")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                }
+            }
         }
     }
 }
@@ -30,9 +38,7 @@ struct SetupView: View {
         Form {
             Section("Your details") {
                 LabeledContent("Age") {
-                    TextField("Years", value: $engine.age, format: .number)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
+                    NumberField(placeholder: "Years", value: $engine.age)
                 }
                 Picker("Step height", selection: $engine.height) {
                     ForEach(StepHeight.allCases) { Text("\($0.rawValue) cm").tag($0) }
@@ -57,9 +63,7 @@ struct SetupView: View {
 
             Section {
                 LabeledContent("Starting heart rate") {
-                    TextField("bpm", value: $manualRest, format: .number)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
+                    NumberField(placeholder: "bpm", value: $manualRest)
                 }
                 Button("Start without watch") {
                     if let error = engine.start(restingHR: manualRest) { alertText = error }
@@ -133,6 +137,7 @@ struct RunningView: View {
                 Button("Stop test", role: .destructive) { confirmStop = true }
             }
         }
+        .scrollDismissesKeyboard(.interactively)
         .confirmationDialog("Stop the test now?", isPresented: $confirmStop, titleVisibility: .visible) {
             Button("Stop and work out my score", role: .destructive) { engine.finish(.stopped) }
         }
@@ -160,9 +165,7 @@ struct StageRows: View {
                 if engine.autoFilled.contains(i) {
                     Text("auto").font(.caption2).foregroundStyle(.secondary)
                 }
-                TextField("bpm", value: $engine.stageHR[i], format: .number)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.trailing)
+                NumberField(placeholder: "bpm", value: $engine.stageHR[i])
                     .font(.title3.monospacedDigit())
                     .frame(width: 72)
             }
@@ -284,5 +287,31 @@ struct ResultChart: View {
         .chartYAxisLabel("Heart rate")
         .chartYScale(domain: .automatic(includesZero: false))
         .chartXScale(domain: .automatic(includesZero: false))
+    }
+}
+
+// MARK: - Number entry
+
+/// A number box that keeps what you type, even while the test screen updates
+/// ten times a second, and saves each digit straight away.
+struct NumberField: View {
+    let placeholder: String
+    @Binding var value: Int?
+    @State private var text = ""
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .keyboardType(.numberPad)
+            .multilineTextAlignment(.trailing)
+            .onAppear { text = value.map(String.init) ?? "" }
+            .onChange(of: text) { _, new in
+                let digits = String(new.filter(\.isNumber).prefix(3))
+                if digits != new { text = digits; return }
+                let number = Int(digits)
+                if number != value { value = number }
+            }
+            .onChange(of: value) { _, new in
+                if Int(text) != new { text = new.map(String.init) ?? "" }
+            }
     }
 }

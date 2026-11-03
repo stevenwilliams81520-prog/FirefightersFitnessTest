@@ -30,12 +30,29 @@ final class WatchModel: NSObject, ObservableObject {
         }
     }
 
+    /// Asks the iPhone for the latest age settings.
+    func refresh(then next: (() -> Void)? = nil) {
+        send(["type": "config"], reply: { [weak self] r in
+            self?.applyContext(r)
+            next?()
+        }, failed: { next?() })
+    }
+
     func startTest() {
         message = nil
-        guard phoneReady else {
-            message = "Enter your age in the iPhone app first."
-            return
+        refresh { [weak self] in
+            guard let self else { return }
+            guard self.phoneReady else {
+                self.message = WCSession.default.isReachable
+                    ? "Enter your age in the iPhone app first."
+                    : "Can't reach your iPhone. Open Fitness Test on it and try again."
+                return
+            }
+            self.beginReading()
         }
+    }
+
+    private func beginReading() {
         phase = .reading
         Task {
             await workout.requestAuthorization()
@@ -123,6 +140,8 @@ final class WatchModel: NSObject, ObservableObject {
                 stageLabel = label
                 if label.hasPrefix("Stage") { WKInterfaceDevice.current().play(.directionUp) }
             }
+        case "config":
+            applyContext(m)
         case "prompt":
             WKInterfaceDevice.current().play(.notification)
         case "result":

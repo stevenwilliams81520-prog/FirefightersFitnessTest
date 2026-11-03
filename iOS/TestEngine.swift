@@ -263,13 +263,22 @@ final class TestEngine: NSObject, ObservableObject {
 
     // MARK: - Apple Watch
 
+    private var config: [String: Any] {
+        var ctx: [String: Any] = ["ready": age != nil, "sent": Date().timeIntervalSince1970]
+        if let maxHR, let stopHR { ctx["maxHR"] = maxHR; ctx["stopHR"] = stopHR }
+        return ctx
+    }
+
     func pushConfig() {
         guard WCSession.isSupported() else { return }
         let s = WCSession.default
         guard s.activationState == .activated, s.isPaired, s.isWatchAppInstalled else { return }
-        var ctx: [String: Any] = ["ready": age != nil]
-        if let maxHR, let stopHR { ctx["maxHR"] = maxHR; ctx["stopHR"] = stopHR }
-        try? s.updateApplicationContext(ctx)
+        try? s.updateApplicationContext(config)
+        if s.isReachable {
+            var msg = config
+            msg["type"] = "config"
+            s.sendMessage(msg, replyHandler: nil, errorHandler: nil)
+        }
     }
 
     private func sendToWatch(_ msg: [String: Any], fallback: Bool) {
@@ -322,6 +331,8 @@ final class TestEngine: NSObject, ObservableObject {
         case "stop":
             finish(.stopped)
             return ["ok": true]
+        case "config":
+            return config
         default:
             return [:]
         }
