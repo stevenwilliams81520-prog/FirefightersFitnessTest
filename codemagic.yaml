@@ -4,13 +4,14 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
-      app_store_connect: YOUR_APP_STORE_CONNECT_KEY_NAME   # same API key integration you use for your other apps
+      app_store_connect: Berfau ASC
     environment:
       groups:
-        - appstore_credentials        # must contain CERTIFICATE_PRIVATE_KEY
+        - appstore_credentials
       vars:
         IOS_BUNDLE_ID: com.stevenwilliams.firefightersfitnesstest
         WATCH_BUNDLE_ID: com.stevenwilliams.firefightersfitnesstest.watchkitapp
+        APP_STORE_APPLE_ID: 6830260091
       xcode: latest
     scripts:
       - name: Generate Xcode project
@@ -26,7 +27,8 @@ workflows:
           xcode-project use-profiles
       - name: Set build number
         script: |
-          agvtool new-version -all $BUILD_NUMBER
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          agvtool new-version -all $((LATEST + 1))
       - name: Build IPA
         script: |
           xcode-project build-ipa \
