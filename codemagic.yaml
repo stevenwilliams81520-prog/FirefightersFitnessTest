@@ -6,11 +6,14 @@ workflows:
     integrations:
       app_store_connect: Berfau ASC
     environment:
-      groups:
-        - appstore_credentials
+      ios_signing:
+        provisioning_profiles:
+          - fft_ios
+          - fft_watch
+        certificates:
+          - berfau_dist
+          - berfau_dist1
       vars:
-        IOS_BUNDLE_ID: com.stevenwilliams.firefightersfitnesstest
-        WATCH_BUNDLE_ID: com.stevenwilliams.firefightersfitnesstest.watchkitapp
         APP_STORE_APPLE_ID: 6830260091
       xcode: latest
     scripts:
@@ -20,10 +23,7 @@ workflows:
           xcodegen generate
       - name: Set up signing
         script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$IOS_BUNDLE_ID" --type IOS_APP_STORE --certificate-key=@env:CERTIFICATE_PRIVATE_KEY --create
-          app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" --type IOS_APP_STORE --certificate-key=@env:CERTIFICATE_PRIVATE_KEY --create
-          keychain add-certificates
+          set -e
           xcode-project use-profiles
       - name: Set build number
         script: |
