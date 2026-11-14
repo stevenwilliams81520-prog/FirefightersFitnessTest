@@ -51,6 +51,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.stevenwilliams.firefightersfitnesstest
         PRODUCT_NAME: FirefightersFitnessTest
+        OTHER_LDFLAGS: ["$(inherited)", "-ObjC"]
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
     dependencies:

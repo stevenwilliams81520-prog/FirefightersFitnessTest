@@ -38,7 +38,7 @@ final class AdsManager: ObservableObject {
     private func startIfAllowed() {
         guard ConsentInformation.shared.canRequestAds, !started else { return }
         started = true
-        MobileAds.shared.start()
+        MobileAds.shared.start(completionHandler: nil)
         canShowAds = true
     }
 }
