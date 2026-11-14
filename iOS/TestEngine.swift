@@ -137,6 +137,7 @@ final class TestEngine: NSObject, ObservableObject {
 
     func reset() {
         if phase == .running { finish(.stopped) }
+        sendToWatch(["type": "reset"], fallback: false)
         phase = .setup
         elapsed = 0
         stageHR = Array(repeating: nil, count: 5)
@@ -324,13 +325,16 @@ final class TestEngine: NSObject, ObservableObject {
             return ["ok": true]
         case "hr":
             if let hr { handleHeartRate(hr) }
+            if phase == .setup { sendToWatch(["type": "reset"], fallback: false) }
             return [:]
         case "record":
             guard let hr else { return ["message": "No heart rate"] }
             return ["message": record(hr)]
         case "stop":
-            finish(.stopped)
-            return ["ok": true]
+            if phase == .running { finish(.stopped) }
+            var reply: [String: Any] = ["ok": true]
+            if phase == .finished, let r = result { reply["vo2"] = r.vo2max }
+            return reply
         case "config":
             return config
         default:

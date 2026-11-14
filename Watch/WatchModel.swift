@@ -77,12 +77,31 @@ final class WatchModel: NSObject, ObservableObject {
         })
     }
 
+    /// Ends the test from the watch. The iPhone replies with the score from the
+    /// stages recorded so far; if it can't be reached, the watch still ends the test.
     func stopTest() {
-        send(["type": "stop"], reply: nil, failed: { [weak self] in
+        WKInterfaceDevice.current().play(.stop)
+        send(["type": "stop"], reply: { [weak self] r in
             guard let self else { return }
-            self.phase = .idle
-            Task { await self.workout.end(save: false) }
+            if let vo2 = r["vo2"] as? Double {
+                self.vo2 = vo2
+                self.stoppedAtThreshold = false
+                self.phase = .finished
+                Task { await self.workout.end(save: true) }
+            } else {
+                self.endLocally()
+            }
+        }, failed: { [weak self] in
+            self?.endLocally()
         })
+    }
+
+    private func endLocally() {
+        let wasActive = phase == .running || phase == .reading
+        phase = .idle
+        stageLabel = "Get ready"
+        lastRecorded = ""
+        if wasActive { Task { await workout.end(save: false) } }
     }
 
     func done() {
@@ -142,6 +161,9 @@ final class WatchModel: NSObject, ObservableObject {
             }
         case "config":
             applyContext(m)
+        case "reset":
+            // The iPhone has no test running, so don't leave the watch stuck mid-test.
+            if phase == .running || phase == .reading { endLocally() }
         case "prompt":
             WKInterfaceDevice.current().play(.notification)
         case "result":

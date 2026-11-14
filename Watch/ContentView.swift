@@ -11,6 +11,7 @@ struct ContentView: View {
                 ProgressView()
                 Text("Reading your starting heart rate…")
                     .multilineTextAlignment(.center)
+                Button("Cancel", role: .cancel) { model.stopTest() }
             }
         case .running: RunView()
         case .finished: DoneView()
