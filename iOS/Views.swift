@@ -1,0 +1,364 @@
+import SwiftUI
+import Charts
+
+struct RootView: View {
+    @EnvironmentObject var engine: TestEngine
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch engine.phase {
+                case .setup: SetupView()
+                case .running: RunningView()
+                case .finished: ResultView()
+                }
+            }
+            .navigationTitle("Firefighters Fitness Test")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Setup
+
+struct SetupView: View {
+    @EnvironmentObject var engine: TestEngine
+    @State private var manualRest: Int?
+    @State private var alertText: String?
+
+    var body: some View {
+        Form {
+            Section("Your details") {
+                LabeledContent("Age") {
+                    NumberField(placeholder: "Years", value: $engine.age)
+                }
+                Picker("Step height", selection: $engine.height) {
+                    ForEach(StepHeight.allCases) { Text("\($0.rawValue) cm").tag($0) }
+                }
+                if let maxHR = engine.maxHR, let stopHR = engine.stopHR {
+                    LabeledContent("Max heart rate", value: "\(maxHR) bpm")
+                    LabeledContent("Test stops above", value: "\(stopHR) bpm")
+                }
+            }
+
+            if let notice = engine.notice {
+                Section { Text(notice).foregroundStyle(.red) }
+            }
+
+            Section {
+                Label(engine.watchStatus, systemImage: "applewatch")
+            } header: {
+                Text("Apple Watch")
+            } footer: {
+                Text("Press Start Test on your watch. It reads your starting heart rate and begins the test. Press Record HR at the end of each stage. If your heart rate goes over the stop figure, the test ends and you get your score.")
+            }
+
+            Section {
+                LabeledContent("Starting heart rate") {
+                    NumberField(placeholder: "bpm", value: $manualRest)
+                }
+                Button("Start without watch") {
+                    if let error = engine.start(restingHR: manualRest) { alertText = error }
+                }
+            } header: {
+                Text("No watch?")
+            } footer: {
+                Text("Type in each stage's heart rate yourself during the test.")
+            }
+
+            Section {
+                Text("This app gives an estimate of aerobic fitness. Stop if you feel unwell, dizzy or in pain, or if the effort feels hard.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .alert("Can't start", isPresented: Binding(get: { alertText != nil }, set: { if !$0 { alertText = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alertText ?? "")
+        }
+    }
+}
+
+// MARK: - Running
+
+struct RunningView: View {
+    @EnvironmentObject var engine: TestEngine
+    @State private var confirmStop = false
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(engine.stageIndex.map { "Stage \($0 + 1)" } ?? "Get ready")
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                    Text(engine.stageIndex.map { "\(Chester.stepRates[$0]) steps a minute" } ?? "Stage 1 starts soon")
+                        .foregroundStyle(.secondary)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(timeString(engine.secondsLeftInStage))
+                            .font(.title2.bold())
+                            .monospacedDigit()
+                        Text(engine.stageIndex == nil ? "to start" : "left in stage")
+                            .foregroundStyle(.secondary)
+                    }
+                    ProgressView(value: min(1, engine.elapsed / TestEngine.testLength))
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section("Heart rate") {
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemName: "heart.fill").foregroundStyle(.red)
+                    Text(engine.liveHR.map { "\($0)" } ?? "--")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text("bpm").foregroundStyle(.secondary)
+                    Spacer()
+                    if let stopHR = engine.stopHR {
+                        Text("Stops above \(stopHR)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Section("Stage readings") { StageRows() }
+
+            Section {
+                Button("Stop test", role: .destructive) { confirmStop = true }
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .confirmationDialog("Stop the test now?", isPresented: $confirmStop, titleVisibility: .visible) {
+            Button("Stop and work out my score", role: .destructive) { engine.finish(.stopped) }
+        }
+    }
+
+    private func timeString(_ seconds: Double) -> String {
+        let s = Int(seconds.rounded(.up))
+        return "\(s / 60):" + String(format: "%02d", s % 60)
+    }
+}
+
+struct StageRows: View {
+    @EnvironmentObject var engine: TestEngine
+
+    var body: some View {
+        ForEach(0..<5, id: \.self) { i in
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Stage \(i + 1)").bold()
+                    Text("\(Chester.stepRates[i]) steps/min · \(Int(engine.height.costs[i])) ml/kg/min")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if engine.autoFilled.contains(i) {
+                    Text("auto").font(.caption2).foregroundStyle(.secondary)
+                }
+                NumberField(placeholder: "bpm", value: $engine.stageHR[i])
+                    .font(.title3.monospacedDigit())
+                    .frame(width: 72)
+            }
+        }
+    }
+}
+
+// MARK: - Result
+
+struct ResultView: View {
+    @EnvironmentObject var engine: TestEngine
+    @State private var healthState: HealthState = .notSaved
+    @State private var savedValue: Double?
+    private let testDate = Date()
+
+    enum HealthState: Equatable { case notSaved, saving, saved, failed(String) }
+
+    var body: some View {
+        List {
+            Section {
+                if let r = engine.result {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Estimated VO₂max").foregroundStyle(.secondary)
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(String(format: "%.1f", r.vo2max))
+                                .font(.system(size: 64, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                            Text("ml/kg/min").foregroundStyle(.secondary)
+                        }
+                        if r.vo2max >= Chester.standard {
+                            Label("Meets the 42.3 standard", systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                        } else {
+                            Label(String(format: "%.1f below the 42.3 standard", Chester.standard - r.vo2max),
+                                  systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                        }
+                        if r.pointsUsed < 3 {
+                            Text("Based on \(r.pointsUsed) stages. Three or more give a more reliable estimate.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        } else if r.r2 < 0.9 {
+                            Text("Your readings don't sit close to a straight line, so treat this result with caution.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    Text("Not enough readings to estimate VO₂max. You need heart rates from at least two stages, rising from one stage to the next.")
+                }
+                if let notice = engine.notice {
+                    Text(notice).font(.footnote)
+                }
+            }
+
+            if let r = engine.result, let maxHR = engine.maxHR, let stopHR = engine.stopHR {
+                Section {
+                    ResultChart(costs: engine.height.costs, hrs: engine.stageHR, result: r,
+                                maxHR: Double(maxHR), stopHR: Double(stopHR))
+                        .frame(height: 260)
+                        .padding(.vertical, 8)
+                }
+            }
+
+            Section {
+                StageRows()
+            } header: {
+                Text("Stage readings")
+            } footer: {
+                Text("You can correct a reading and the score updates.")
+            }
+
+            Section {
+                LabeledContent("Starting heart rate", value: engine.restHR.map { "\($0) bpm" } ?? "–")
+                LabeledContent("Step height", value: "\(engine.height.rawValue) cm")
+            }
+
+            if let r = engine.result, HealthSaver.isAvailable {
+                Section {
+                    healthButton(for: r.vo2max)
+                } footer: {
+                    switch healthState {
+                    case .failed(let message): Text(message).foregroundStyle(.red)
+                    case .saved: Text("Saved to Health as a VO2 Max reading.")
+                    default: Text("Check your readings first. If you correct one after saving, save again to add the new score.")
+                    }
+                }
+            }
+
+            Section {
+                Button("New test") { engine.reset() }
+            }
+        }
+    }
+}
+
+extension ResultView {
+    @ViewBuilder
+    func healthButton(for vo2: Double) -> some View {
+        let rounded = (vo2 * 10).rounded() / 10
+        let isSaved = healthState == .saved && savedValue == rounded
+        Button {
+            healthState = .saving
+            Task {
+                if let error = await HealthSaver.save(vo2max: rounded, date: testDate) {
+                    healthState = .failed(error)
+                } else {
+                    savedValue = rounded
+                    healthState = .saved
+                }
+            }
+        } label: {
+            HStack {
+                Label(isSaved ? "Saved to Health" : "Save \(String(format: "%.1f", rounded)) to Health",
+                      systemImage: isSaved ? "checkmark.circle.fill" : "heart.text.square.fill")
+                Spacer()
+                if healthState == .saving { ProgressView() }
+            }
+        }
+        .disabled(isSaved || healthState == .saving)
+    }
+}
+
+struct ResultChart: View {
+    let costs: [Double]
+    let hrs: [Int?]
+    let result: Chester.Result
+    let maxHR: Double
+    let stopHR: Double
+
+    private var points: [(x: Double, y: Double)] {
+        (0..<5).compactMap { i in hrs[i].map { (x: costs[i], y: Double($0)) } }
+    }
+
+    var body: some View {
+        let x0 = costs[0] - 4
+        Chart {
+            RuleMark(y: .value("Max", maxHR))
+                .foregroundStyle(.primary)
+                .annotation(position: .top, alignment: .leading) {
+                    Text("Max \(Int(maxHR))").font(.caption2)
+                }
+            RuleMark(y: .value("80%", stopHR))
+                .foregroundStyle(.orange)
+                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+            RuleMark(x: .value("Standard", Chester.standard))
+                .foregroundStyle(.green)
+                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [2, 4]))
+            LineMark(x: .value("Oxygen cost", x0),
+                     y: .value("Heart rate", result.intercept + result.slope * x0),
+                     series: .value("Line", "fit"))
+                .foregroundStyle(.red)
+            LineMark(x: .value("Oxygen cost", result.vo2max),
+                     y: .value("Heart rate", maxHR),
+                     series: .value("Line", "fit"))
+                .foregroundStyle(.red)
+            ForEach(points.indices, id: \.self) { i in
+                PointMark(x: .value("Oxygen cost", points[i].x), y: .value("Heart rate", points[i].y))
+                    .foregroundStyle(.primary)
+                    .symbolSize(70)
+            }
+            PointMark(x: .value("Oxygen cost", result.vo2max), y: .value("Heart rate", maxHR))
+                .foregroundStyle(.red)
+                .symbolSize(110)
+        }
+        .chartXAxisLabel("Oxygen cost (ml/kg/min)")
+        .chartYAxisLabel("Heart rate")
+        .chartYScale(domain: .automatic(includesZero: false))
+        .chartXScale(domain: .automatic(includesZero: false))
+    }
+}
+
+// MARK: - Number entry
+
+/// A number box that keeps what you type, even while the test screen updates
+/// ten times a second, and saves each digit straight away.
+struct NumberField: View {
+    let placeholder: String
+    @Binding var value: Int?
+    @State private var text = ""
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .keyboardType(.numberPad)
+            .multilineTextAlignment(.trailing)
+            .onAppear { text = value.map(String.init) ?? "" }
+            .onChange(of: text) { _, new in
+                let digits = String(new.filter(\.isNumber).prefix(3))
+                if digits != new { text = digits; return }
+                let number = Int(digits)
+                if number != value { value = number }
+            }
+            .onChange(of: value) { _, new in
+                if Int(text) != new { text = new.map(String.init) ?? "" }
+            }
+    }
+}
