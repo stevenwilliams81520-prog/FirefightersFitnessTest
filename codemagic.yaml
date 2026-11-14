@@ -28,11 +28,17 @@ workflows:
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
           agvtool new-version -all $((LATEST + 1))
+      - name: Resolve Swift packages
+        script: |
+          xcodebuild -resolvePackageDependencies \
+            -project "FirefightersFitnessTest.xcodeproj" \
+            -scheme "FirefightersFitnessTest"
       - name: Build IPA
         script: |
           xcode-project build-ipa \
             --project "FirefightersFitnessTest.xcodeproj" \
-            --scheme "FirefightersFitnessTest"
+            --scheme "FirefightersFitnessTest" \
+          || { echo "===== ERRORS ====="; grep -h -E "error:|❌" /tmp/xcodebuild_logs/*.log | sort -u | head -60; exit 1; }
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
