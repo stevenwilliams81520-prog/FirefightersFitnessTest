@@ -58,6 +58,7 @@ targets:
       - target: FFTWatch
       - package: GoogleMobileAds
       - package: UserMessagingPlatform
+        product: GoogleUserMessagingPlatform
     scheme: {}
 
   FFTWatch:
