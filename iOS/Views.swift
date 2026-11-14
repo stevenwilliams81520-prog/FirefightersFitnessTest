@@ -13,6 +13,10 @@ struct RootView: View {
                 case .finished: ResultView()
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                // No adverts while you're stepping.
+                if engine.phase != .running { AdBanner() }
+            }
             .navigationTitle("Firefighters Fitness Test")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -31,6 +35,8 @@ struct RootView: View {
 
 struct SetupView: View {
     @EnvironmentObject var engine: TestEngine
+    @EnvironmentObject var store: Store
+    @EnvironmentObject var ads: AdsManager
     @State private var manualRest: Int?
     @State private var alertText: String?
 
@@ -75,12 +81,42 @@ struct SetupView: View {
             }
 
             Section {
+                if store.adsRemoved {
+                    Label("Ads removed. Thank you!", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Button {
+                        Task { await store.buy() }
+                    } label: {
+                        HStack {
+                            Label("Remove ads", systemImage: "nosign")
+                            Spacer()
+                            if store.busy { ProgressView() } else { Text(store.price ?? "99p").foregroundStyle(.secondary) }
+                        }
+                    }
+                    .disabled(store.busy)
+                }
+                Button("Restore purchase") { Task { await store.restore() } }
+                    .disabled(store.busy)
+                if ads.privacyOptionsRequired {
+                    Button("Ad privacy choices") { ads.showPrivacyOptions() }
+                }
+            } header: {
+                Text("App")
+            }
+
+            Section {
                 Text("This app gives an estimate of aerobic fitness. Stop if you feel unwell, dizzy or in pain, or if the effort feels hard.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
         .scrollDismissesKeyboard(.interactively)
+        .alert("Purchases", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(store.message ?? "")
+        }
         .alert("Can't start", isPresented: Binding(get: { alertText != nil }, set: { if !$0 { alertText = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {

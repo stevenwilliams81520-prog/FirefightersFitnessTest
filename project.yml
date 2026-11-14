@@ -13,6 +13,13 @@ settings:
     SWIFT_VERSION: "5.0"
     DEVELOPMENT_TEAM: ""   # Codemagic fills in signing; add your Team ID here if building locally
     CODE_SIGN_STYLE: Manual
+packages:
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
+    from: 12.0.0
+  UserMessagingPlatform:
+    url: https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git
+    from: 3.0.0
 targets:
   FirefightersFitnessTest:
     type: application
@@ -31,6 +38,10 @@ targets:
         LSApplicationCategoryType: public.app-category.healthcare-fitness
         NSHealthShareUsageDescription: Fitness Test checks whether it can save your VO2max to Health.
         NSHealthUpdateUsageDescription: Fitness Test saves your Chester Step Test VO2max score to Health.
+        # AdMob app ID. This is Google's TEST ID: replace with your own before release.
+        GADApplicationIdentifier: ca-app-pub-3940256099942544~1458002511
+        SKAdNetworkItems:
+          - SKAdNetworkIdentifier: cstr6suwn9.skadnetwork
     entitlements:
       path: iOS/FirefightersFitnessTest.entitlements
       properties:
@@ -44,6 +55,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
     dependencies:
       - target: FFTWatch
+      - package: GoogleMobileAds
+      - package: UserMessagingPlatform
     scheme: {}
 
   FFTWatch:
