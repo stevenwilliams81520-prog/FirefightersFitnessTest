@@ -29,6 +29,13 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.healthcare-fitness
+        NSHealthShareUsageDescription: Fitness Test checks whether it can save your VO2max to Health.
+        NSHealthUpdateUsageDescription: Fitness Test saves your Chester Step Test VO2max score to Health.
+    entitlements:
+      path: iOS/FirefightersFitnessTest.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.stevenwilliams.firefightersfitnesstest
