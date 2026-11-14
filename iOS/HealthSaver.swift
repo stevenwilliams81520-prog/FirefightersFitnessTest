@@ -27,7 +27,7 @@ enum HealthSaver {
             start: date,
             end: date,
             metadata: [
-                HKMetadataKeyVO2MaxTestType: HKVO2MaxTestType.predictionSubMaximalExercise.rawValue,
+                HKMetadataKeyVO2MaxTestType: NSNumber(value: 2), // 2 = submaximal exercise prediction (step test)
                 HKMetadataKeyExternalUUID: UUID().uuidString
             ]
         )
