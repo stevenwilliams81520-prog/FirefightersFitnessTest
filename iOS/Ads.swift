@@ -3,8 +3,8 @@ import GoogleMobileAds
 import UserMessagingPlatform
 
 enum AdConfig {
-    /// Google's TEST banner ID. Replace with your own banner ad unit ID from AdMob before release.
-    static let bannerUnitID = "ca-app-pub-3940256099942544/2435281174"
+    /// Banner ad unit for Firefighters Fitness Test (AdMob).
+    static let bannerUnitID = "ca-app-pub-3118245182829166/1384482747"
 }
 
 /// Asks for ad consent (required in the UK and EU), then starts AdMob.

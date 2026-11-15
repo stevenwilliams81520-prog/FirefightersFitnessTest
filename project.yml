@@ -38,8 +38,8 @@ targets:
         LSApplicationCategoryType: public.app-category.healthcare-fitness
         NSHealthShareUsageDescription: Fitness Test checks whether it can save your VO2max to Health.
         NSHealthUpdateUsageDescription: Fitness Test saves your Chester Step Test VO2max score to Health.
-        # AdMob app ID. This is Google's TEST ID: replace with your own before release.
-        GADApplicationIdentifier: ca-app-pub-3940256099942544~1458002511
+        # AdMob app ID (Firefighters Fitness Test)
+        GADApplicationIdentifier: ca-app-pub-3118245182829166~9164055368
         SKAdNetworkItems:
           - SKAdNetworkIdentifier: cstr6suwn9.skadnetwork
     entitlements:
