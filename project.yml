@@ -31,6 +31,8 @@ targets:
       path: iOS/Info.plist
       properties:
         CFBundleDisplayName: Fitness Test
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UIBackgroundModes: [audio]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -71,6 +73,8 @@ targets:
       path: Watch/Info.plist
       properties:
         CFBundleDisplayName: Fitness Test
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.stevenwilliams.firefightersfitnesstest
         WKBackgroundModes: [workout-processing]
